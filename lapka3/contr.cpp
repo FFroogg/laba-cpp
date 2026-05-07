@@ -6,19 +6,17 @@
 #include <string>
 
 const float PI = 3.1415926535f;
-
 // хранилище
 struct EvalResult {
     double value;
     double error_pct;
 };
-
 // эталон
 double get_analytical(float T, bool squared) {
     return squared ? (T / 2.0) : std::sqrt(T / PI);
 }
 
-// прямое суммирование
+// сумма
 float sum_basic(const std::vector<float>& vals) {
     float s = 0;
     for (float v : vals) s += v;
@@ -32,7 +30,25 @@ float sum_recursive(const std::vector<float>& vals, int start, int end) {
     return sum_recursive(vals, start, mid) + sum_recursive(vals, mid, end);
 }
 
-// алгоритм К(п)ахана
+// то же но цикл
+float sum_pairwise_iter(std::vector<float> vals) {
+    size_t n = vals.size();
+    if (n == 0) return 0.0f;
+    while (n > 1) {
+        for (size_t i = 0; i < n / 2; ++i) {
+            vals[i] = vals[2 * i] + vals[2 * i + 1];
+        }
+        if (n % 2 != 0) {
+            vals[n / 2] = vals[n - 1];
+            n = n / 2 + 1;
+        } else {
+            n = n / 2;
+        }
+    }
+    return vals[0];
+}
+
+// алгоритм кахана
 float sum_kahan(const std::vector<float>& vals) {
     float sum = 0.0f, c = 0.0f;
     for (float v : vals) {
@@ -44,14 +60,13 @@ float sum_kahan(const std::vector<float>& vals) {
     return sum;
 }
 
-// суммирование в Double
+//суммирование в Double
 double sum_double(const std::vector<float>& vals) {
     double sum = 0.0;
     for (float v : vals) sum += (double)v;
     return sum;
 }
-
-// интегральчик(вызов методов)
+//метод для выбора интеграла
 EvalResult integrate(float T, int N, int method, bool squared) {
     float v_max = 5.0f * std::sqrt(T);
     float v_min = -v_max;
@@ -68,7 +83,8 @@ EvalResult integrate(float T, int N, int method, bool squared) {
     double res = 0;
     if (method == 0)      res = sum_basic(vals);
     else if (method == 1) res = sum_recursive(vals, 0, N);
-    else if (method == 2) res = sum_kahan(vals);
+    else if (method == 2) res = sum_pairwise_iter(vals);
+    else if (method == 3) res = sum_kahan(vals);
     else                  res = sum_double(vals);
 
     double analytical = get_analytical(T, squared);
@@ -78,7 +94,7 @@ EvalResult integrate(float T, int N, int method, bool squared) {
 
 int main() {
     std::vector<float> temps = {0.1f, 1.0f, 100.0f};
-    std::vector<std::string> methods = {"Basic", "Recursive", "Kahan", "Double"};
+    std::vector<std::string> methods = {"Basic", "Recursive", "Pairwise_Iter", "Kahan", "Double"};
     
     std::ofstream out("results.csv");
     out << "T,N,Method,ErrorPct\n";
@@ -87,7 +103,6 @@ int main() {
         for (int N = 10; N <= 1000000; N *= 5) { 
             for (int m = 0; m < (int)methods.size(); ++m) {
                 EvalResult r = integrate(T, N, m, false); 
-                
                 out << std::fixed << std::setprecision(1) << T << "," 
                     << std::fixed << std::setprecision(0) << N << "," 
                     << methods[m] << "," 
@@ -95,7 +110,5 @@ int main() {
             }
         }
     }
-
-    out.close();
     return 0;
 }
